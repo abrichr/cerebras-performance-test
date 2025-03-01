@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Dict, List, Any
 import asyncio
 import concurrent.futures
@@ -461,8 +462,10 @@ def run_benchmark_cli(
     logger.info("Generating test prompts with model-generated content...")
     prompts = generate_prompts(client, model)
 
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
     # Save the generated prompts for reference
-    with open(f"benchmark_prompts_{model}.json", "w") as f:
+    with open(f"benchmark_prompts_{model}_{timestamp}.json", "w") as f:
         json.dump(prompts, f, indent=2)
 
     logger.info(f"Generated {len(prompts)} test prompts")
@@ -482,12 +485,13 @@ def run_benchmark_cli(
 
     # Save results
     output_file = (
-        "benchmark_results_"
-        f"{model}_concurrency_{concurrency}_iterations_{num_iterations}.json"
+        f"benchmark_results_{model}_concurrency_{concurrency}_"
+        f"iterations_{num_iterations}_{timestamp}.json"
     )
     with open(output_file, "w") as f:
         json.dump(
             {
+                "timestamp": timestamp,
                 "concurrency": concurrency,
                 "model": model,
                 "num_iterations": num_iterations,
@@ -501,6 +505,7 @@ def run_benchmark_cli(
     logger.info(f"Benchmark complete. Results saved to {output_file}")
 
     return {
+        "timestamp": timestamp,
         "concurrency": concurrency,
         "model": model,
         "num_iterations": num_iterations,

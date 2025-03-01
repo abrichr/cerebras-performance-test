@@ -8,5 +8,6 @@ dependencies = [
     "cerebras-cloud-sdk>=1.23.0",
     "fire>=0.7.0",
     "loguru>=0.7.3",
+    "matplotlib>=3.10.1",
     "python-dotenv>=1.0.1",
 ]
