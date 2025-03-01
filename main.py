@@ -15,7 +15,8 @@ from loguru import logger
 
 MAX_TOKENS = 5000
 MODEL = "llama-3.3-70b"
-NUM_ITERATIONS = 3
+NUM_ITERATIONS = 5
+OUTPUT_DIR = "results"
 
 # Load environment variables
 load_dotenv()
@@ -440,7 +441,10 @@ def compare_metrics(results: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def run_benchmark_cli(
-    concurrency: int = 1, model: str = MODEL, num_iterations: int = NUM_ITERATIONS
+    concurrency: int = 1,
+    model: str = MODEL,
+    num_iterations: int = NUM_ITERATIONS,
+    output_dir: str = OUTPUT_DIR,
 ):
     """
     Run the Cerebras performance benchmark.
@@ -449,11 +453,15 @@ def run_benchmark_cli(
         concurrency: Number of concurrent requests.
         model: Model to use for inference.
         num_iterations: Number of times to repeat each test to get averaged results.
+        output_dir: Directory to save benchmark results.
     """
     logger.info(
         "Starting Cerebras performance benchmark with "
         f"concurrency={concurrency}, num_iterations={num_iterations}"
     )
+
+    # Ensure the results directory exists
+    os.makedirs(output_dir, exist_ok=True)
 
     # Setup
     client = setup_client()
@@ -465,7 +473,7 @@ def run_benchmark_cli(
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # Save the generated prompts for reference
-    with open(f"benchmark_prompts_{model}_{timestamp}.json", "w") as f:
+    with open(f"{output_dir}/benchmark_prompts_{model}_{timestamp}.json", "w") as f:
         json.dump(prompts, f, indent=2)
 
     logger.info(f"Generated {len(prompts)} test prompts")
@@ -485,7 +493,7 @@ def run_benchmark_cli(
 
     # Save results
     output_file = (
-        f"benchmark_results_{model}_concurrency_{concurrency}_"
+        f"{output_dir}/benchmark_results_{model}_concurrency_{concurrency}_"
         f"iterations_{num_iterations}_{timestamp}.json"
     )
     with open(output_file, "w") as f:

@@ -275,19 +275,20 @@ def generate_plots(json_path=None, output_dir="plots"):
     timestamp = data.get("timestamp", "unknown")
     logger.info(f"Using timestamp from data: {timestamp}")
 
-    # Create directory for plots
-    os.makedirs(output_dir, exist_ok=True)
-    logger.info(f"Output directory: {output_dir}")
+    # Create directory for plots with timestamp subdirectory
+    timestamp_dir = os.path.join(output_dir, timestamp)
+    os.makedirs(timestamp_dir, exist_ok=True)
+    logger.info(f"Output directory: {timestamp_dir}")
 
     # Generate all plots
-    create_latency_plot(data, output_dir, timestamp)
-    create_throughput_plot(data, output_dir, timestamp)
-    create_first_token_latency_plot(data, output_dir, timestamp)
-    create_server_component_times_plot(data, output_dir, timestamp)
-    create_network_overhead_plot(data, output_dir, timestamp)
-    create_token_usage_plot(data, output_dir, timestamp)
+    create_latency_plot(data, timestamp_dir, timestamp)
+    create_throughput_plot(data, timestamp_dir, timestamp)
+    create_first_token_latency_plot(data, timestamp_dir, timestamp)
+    create_server_component_times_plot(data, timestamp_dir, timestamp)
+    create_network_overhead_plot(data, timestamp_dir, timestamp)
+    create_token_usage_plot(data, timestamp_dir, timestamp)
 
-    logger.success(f"All plots have been generated in the '{output_dir}' directory.")
+    logger.success(f"All plots have been generated in the '{timestamp_dir}' directory.")
 
 
 if __name__ == "__main__":
