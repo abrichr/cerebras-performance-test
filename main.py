@@ -6,6 +6,7 @@ import json
 import os
 import textwrap
 import time
+import statistics
 
 from cerebras.cloud.sdk import Cerebras
 from dotenv import load_dotenv
@@ -13,6 +14,7 @@ from loguru import logger
 
 MAX_TOKENS = 5000
 MODEL = "llama-3.3-70b"
+NUM_ITERATIONS = 3
 
 # Load environment variables
 load_dotenv()
@@ -29,7 +31,7 @@ def setup_client() -> Cerebras:
 def generate_content(
     client: Cerebras,
     prompt: str,
-    model: str = "llama-3.3-70b",
+    model: str = MODEL,
     max_tokens: int = MAX_TOKENS,
 ) -> str:
     """Use the model to generate content based on a prompt."""
@@ -114,7 +116,7 @@ def generate_prompts(client: Cerebras, model: str) -> List[Dict[str, Any]]:
 
 
 def measure_performance(
-    client: Cerebras, prompt: Dict[str, Any], model: str = "llama-3.3-70b"
+    client: Cerebras, prompt: Dict[str, Any], model: str = MODEL
 ) -> Dict[str, Any]:
     """
     Measure server-side and client-side metrics for a single prompt.
@@ -205,80 +207,194 @@ def measure_performance(
     return result
 
 
-def run_benchmark(
-    client: Cerebras, prompts: List[Dict[str, Any]], model: str = "llama-3.3-70b"
+def run_benchmark_with_iterations(
+    client: Cerebras,
+    prompts: List[Dict[str, Any]],
+    model: str = MODEL,
+    num_iterations: int = NUM_ITERATIONS,
 ) -> List[Dict[str, Any]]:
-    """Run the benchmark for all prompts."""
-    results = []
+    """Run the benchmark for all prompts with iterations and average the results."""
+    averaged_results = []
 
     for prompt in prompts:
-        # Measure performance metrics
-        result = measure_performance(client, prompt, model)
-        results.append(result)
-
-        # Log key metrics
-        logger.info(f"Prompt: {prompt['name']}")
         logger.info(
-            f"Server latency: {result['server_metrics']['total_server_time']:.4f}s"
+            f"Testing prompt: {prompt['name']} with {num_iterations} iterations"
+        )
+
+        # Store results for each iteration
+        all_iteration_results = []
+
+        for i in range(num_iterations):
+            logger.info(f"  Repeat {i+1}/{num_iterations}")
+            # Measure performance metrics
+            result = measure_performance(client, prompt, model)
+            all_iteration_results.append(result)
+
+        # Calculate averages
+        avg_result = {
+            "prompt": prompt["name"],
+            "server_metrics": {},
+            "client_metrics": {},
+            "token_usage": {},
+            # "raw_results": all_iteration_results
+        }
+
+        # Average server metrics
+        for metric in all_iteration_results[0]["server_metrics"]:
+            values = [r["server_metrics"][metric] for r in all_iteration_results]
+            avg_result["server_metrics"][metric] = statistics.mean(values)
+            avg_result["server_metrics"][f"{metric}_std"] = (
+                statistics.stdev(values) if len(values) > 1 else 0
+            )
+
+        # Average client metrics
+        for metric in all_iteration_results[0]["client_metrics"]:
+            values = [r["client_metrics"][metric] for r in all_iteration_results]
+            avg_result["client_metrics"][metric] = statistics.mean(values)
+            avg_result["client_metrics"][f"{metric}_std"] = (
+                statistics.stdev(values) if len(values) > 1 else 0
+            )
+
+        # Average token usage (should be constant but averaging for consistency)
+        for metric in all_iteration_results[0]["token_usage"]:
+            values = [r["token_usage"][metric] for r in all_iteration_results]
+            avg_result["token_usage"][metric] = statistics.mean(values)
+
+        averaged_results.append(avg_result)
+
+        # Log key metrics for the averaged result
+        logger.info(f"Averaged results for prompt: {prompt['name']}")
+        logger.info(
+            f"Server latency: {avg_result['server_metrics']['total_server_time']:.4f}s"
         )
         logger.info(
             "Server throughput: "
-            f"{result['server_metrics']['server_throughput']:.2f} tokens/sec"
+            f"{avg_result['server_metrics']['server_throughput']:.2f} tokens/sec"
         )
         logger.info(
             "Time to first token: "
-            f"{result['client_metrics']['time_to_first_token']:.4f}s"
+            f"{avg_result['client_metrics']['time_to_first_token']:.4f}s"
         )
         logger.info(
-            f"Output speed: {result['client_metrics']['output_speed']:.2f} tokens/sec"
+            "Output speed: "
+            f"{avg_result['client_metrics']['output_speed']:.2f} tokens/sec"
         )
         logger.info(
             "Total request time: "
-            f"{result['client_metrics']['total_time_per_request']:.4f}s"
+            f"{avg_result['client_metrics']['total_time_per_request']:.4f}s"
         )
         logger.info("---")
 
-    return results
+    return averaged_results
 
 
-async def run_concurrent_benchmark(
+async def run_concurrent_benchmark_with_iterations(
     client: Cerebras,
     prompts: List[Dict[str, Any]],
     concurrency: int = 1,
-    model: str = "llama-3.3-70b",
+    model: str = MODEL,
+    num_iterations: int = NUM_ITERATIONS,
 ) -> List[Dict[str, Any]]:
-    """Run benchmark with concurrent requests."""
-    all_results = []
+    """Run benchmark with concurrent requests and iterations."""
+    all_averaged_results = []
 
     if concurrency == 1:
         # Use the existing non-concurrent implementation
-        return run_benchmark(client, prompts, model)
+        return run_benchmark_with_iterations(client, prompts, model, num_iterations)
 
-    # For concurrent processing, we'll duplicate prompts to hit the concurrency limit
-    expanded_prompts = []
-    for i in range(concurrency):
-        for prompt in prompts:
-            # Make a copy and add an identifier for concurrency
-            prompt_copy = prompt.copy()
-            prompt_copy["name"] = f"{prompt['name']}_concurrent_{i}"
-            expanded_prompts.append(prompt_copy)
+    # For each prompt, we'll run the tests with iterations and calculate averages
+    for prompt in prompts:
+        logger.info(
+            f"Testing prompt: {prompt['name']} with {num_iterations} iterations"
+        )
 
-    # Process in batches based on concurrency
-    for i in range(0, len(expanded_prompts), concurrency):
-        batch = expanded_prompts[i:i + concurrency]
+        # Store results for each concurrent iteration
+        all_iteration_results = []
 
-        # Use ThreadPoolExecutor for concurrent API calls
-        with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
-            futures = [
-                executor.submit(measure_performance, client, prompt, model)
-                for prompt in batch
-            ]
-            batch_results = [
-                future.result() for future in concurrent.futures.as_completed(futures)
-            ]
-            all_results.extend(batch_results)
+        # Process in batches based on concurrency
+        for iteration_batch in range(0, num_iterations, concurrency):
+            # Determine number of iterations in this batch
+            batch_size = min(concurrency, num_iterations - iteration_batch)
 
-    return all_results
+            # Duplicate the prompt for concurrent processing
+            batch_prompts = []
+            for i in range(batch_size):
+                prompt_copy = prompt.copy()
+                prompt_copy["name"] = (
+                    f"{prompt['name']}_iteration_{iteration_batch + i + 1}"
+                )
+                batch_prompts.append(prompt_copy)
+
+            # Use ThreadPoolExecutor for concurrent API calls
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=concurrency
+            ) as executor:
+                futures = [
+                    executor.submit(measure_performance, client, p, model)
+                    for p in batch_prompts
+                ]
+                batch_results = [
+                    future.result()
+                    for future in concurrent.futures.as_completed(futures)
+                ]
+                all_iteration_results.extend(batch_results)
+
+        # Calculate averages
+        avg_result = {
+            "prompt": prompt["name"],
+            "server_metrics": {},
+            "client_metrics": {},
+            "token_usage": {},
+            # "raw_results": all_iteration_results
+        }
+
+        # Average server metrics
+        for metric in all_iteration_results[0]["server_metrics"]:
+            values = [r["server_metrics"][metric] for r in all_iteration_results]
+            avg_result["server_metrics"][metric] = statistics.mean(values)
+            avg_result["server_metrics"][f"{metric}_std"] = (
+                statistics.stdev(values) if len(values) > 1 else 0
+            )
+
+        # Average client metrics
+        for metric in all_iteration_results[0]["client_metrics"]:
+            values = [r["client_metrics"][metric] for r in all_iteration_results]
+            avg_result["client_metrics"][metric] = statistics.mean(values)
+            avg_result["client_metrics"][f"{metric}_std"] = (
+                statistics.stdev(values) if len(values) > 1 else 0
+            )
+
+        # Average token usage
+        for metric in all_iteration_results[0]["token_usage"]:
+            values = [r["token_usage"][metric] for r in all_iteration_results]
+            avg_result["token_usage"][metric] = statistics.mean(values)
+
+        all_averaged_results.append(avg_result)
+
+        # Log key metrics for the averaged result
+        logger.info(f"Averaged results for prompt: {prompt['name']}")
+        logger.info(
+            f"Server latency: {avg_result['server_metrics']['total_server_time']:.4f}s"
+        )
+        logger.info(
+            "Server throughput: "
+            f"{avg_result['server_metrics']['server_throughput']:.2f} tokens/sec"
+        )
+        logger.info(
+            "Time to first token: "
+            f"{avg_result['client_metrics']['time_to_first_token']:.4f}s"
+        )
+        logger.info(
+            "Output speed: "
+            f"{avg_result['client_metrics']['output_speed']:.2f} tokens/sec"
+        )
+        logger.info(
+            "Total request time: "
+            f"{avg_result['client_metrics']['total_time_per_request']:.4f}s"
+        )
+        logger.info("---")
+
+    return all_averaged_results
 
 
 def compare_metrics(results: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -322,16 +438,20 @@ def compare_metrics(results: List[Dict[str, Any]]) -> Dict[str, Any]:
     return comparison
 
 
-def run_benchmark_cli(concurrency: int = 1, model: str = MODEL):
+def run_benchmark_cli(
+    concurrency: int = 1, model: str = MODEL, num_iterations: int = NUM_ITERATIONS
+):
     """
     Run the Cerebras performance benchmark.
 
     Args:
         concurrency: Number of concurrent requests.
         model: Model to use for inference.
+        num_iterations: Number of times to repeat each test to get averaged results.
     """
     logger.info(
-        f"Starting Cerebras performance benchmark with concurrency={concurrency}"
+        "Starting Cerebras performance benchmark with "
+        f"concurrency={concurrency}, num_iterations={num_iterations}"
     )
 
     # Setup
@@ -347,24 +467,30 @@ def run_benchmark_cli(concurrency: int = 1, model: str = MODEL):
 
     logger.info(f"Generated {len(prompts)} test prompts")
 
-    # Run benchmark with appropriate concurrency
+    # Run benchmark with appropriate concurrency and iterations
     if concurrency == 1:
-        results = run_benchmark(client, prompts, model)
+        results = run_benchmark_with_iterations(client, prompts, model, num_iterations)
     else:
         results = asyncio.run(
-            run_concurrent_benchmark(client, prompts, concurrency, model)
+            run_concurrent_benchmark_with_iterations(
+                client, prompts, concurrency, model, num_iterations
+            )
         )
 
     # Compare server-side and client-side metrics
     comparison = compare_metrics(results)
 
     # Save results
-    output_file = f"benchmark_results_{model}_concurrency_{concurrency}.json"
+    output_file = (
+        "benchmark_results_"
+        f"{model}_concurrency_{concurrency}_iterations_{num_iterations}.json"
+    )
     with open(output_file, "w") as f:
         json.dump(
             {
                 "concurrency": concurrency,
                 "model": model,
+                "num_iterations": num_iterations,
                 "results": results,
                 "comparison": comparison,
             },
@@ -377,6 +503,7 @@ def run_benchmark_cli(concurrency: int = 1, model: str = MODEL):
     return {
         "concurrency": concurrency,
         "model": model,
+        "num_iterations": num_iterations,
         "results": results,
         "comparison": comparison,
     }
