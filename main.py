@@ -15,15 +15,13 @@ from loguru import logger
 
 MAX_TOKENS = 5000
 MODEL = "llama-3.3-70b"
-NUM_ITERATIONS = 5
+NUM_ITERATIONS = 10
 OUTPUT_DIR = "results"
-
-# Load environment variables
-load_dotenv()
 
 
 def setup_client() -> Cerebras:
     """Set up the Cerebras client with API key."""
+    load_dotenv()
     api_key = os.environ.get("CEREBRAS_API_KEY")
     if not api_key:
         raise ValueError("CEREBRAS_API_KEY environment variable not set")
