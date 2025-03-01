@@ -1,11 +1,18 @@
 from typing import Dict, List, Any
-import os
-import time
+import asyncio
+import concurrent.futures
+import fire
 import json
+import os
+import textwrap
+import time
 
 from cerebras.cloud.sdk import Cerebras
 from dotenv import load_dotenv
 from loguru import logger
+
+MAX_TOKENS = 5000
+MODEL = "llama-3.3-70b"
 
 # Load environment variables
 load_dotenv()
@@ -19,28 +26,87 @@ def setup_client() -> Cerebras:
     return Cerebras(api_key=api_key)
 
 
-def generate_prompts() -> List[Dict[str, Any]]:
-    """Generate test prompts with varying lengths."""
+def generate_content(
+    client: Cerebras,
+    prompt: str,
+    model: str = "llama-3.3-70b",
+    max_tokens: int = MAX_TOKENS,
+) -> str:
+    """Use the model to generate content based on a prompt."""
+    logger.info(f"Generating content: {prompt[:50]}...")
+
+    response = client.chat.completions.create(
+        messages=[{"role": "user", "content": prompt}],
+        model=model,
+        stream=False,
+        max_tokens=max_tokens,
+    )
+
+    content = response.choices[0].message.content
+    logger.info(f"Generated content with {len(content.split())} words")
+    return content
+
+
+def generate_prompts(client: Cerebras, model: str) -> List[Dict[str, Any]]:
+    """Generate test prompts with varying input/output length profiles."""
+
+    # Get a long document from the model
+    long_document = generate_content(
+        client,
+        textwrap.dedent("""
+            Write a very detailed 4000+ word technical document about quantum
+            computing, including explanations of qubits, quantum gates, quantum
+            entanglement, quantum algorithms, and potential applications.
+            Include mathematical notations where appropriate.
+        """).strip(),
+        model,
+    )
+
     return [
         {
-            "name": "short_prompt",
+            "name": "short_input_short_output",
             "messages": [{"role": "user", "content": "What is AI?"}],
         },
         {
-            "name": "medium_prompt",
+            "name": "short_input_long_output",
             "messages": [
                 {
                     "role": "user",
-                    "content": "Explain the differences between transformer models and RNNs.",
+                    "content": textwrap.dedent("""
+                        Write a long and meandering story about a space explorer
+                        discovering a new civilization. Include a colorful cast of
+                        characters, and extremely detailed descriptions.
+                    """).strip(),
                 }
             ],
         },
         {
-            "name": "long_prompt",
+            "name": "long_input_short_output",
             "messages": [
                 {
                     "role": "user",
-                    "content": "Write a detailed explanation of how large language models work, covering architecture, training, and inference.",
+                    "content": long_document
+                    + textwrap.dedent("""
+                        ---
+                        Provide a one-paragraph executive summary of the above document.
+                        Be extremely brief.
+                    """).strip(),
+                }
+            ],
+        },
+        {
+            "name": "long_input_long_output",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": long_document
+                    + textwrap.dedent("""
+                        ---
+                        Based on the above document, explain how the technology
+                        might impact machine learning and AI in the next decade.
+                        Provide specific examples and potential applications.
+                        Be extremely detailed.
+                    """).strip(),
                 }
             ],
         },
@@ -94,10 +160,10 @@ def measure_performance(
 
     # Store server metrics from final chunk
     server_metrics = {
-        "prompt_time": chunk.time_info.prompt_time,  # time to process the prompt
-        "completion_time": chunk.time_info.completion_time,  # time to generate the response
-        "queue_time": chunk.time_info.queue_time,  # time in queue
-        "total_server_time": chunk.time_info.total_time,  # total server processing time
+        "prompt_time": chunk.time_info.prompt_time,
+        "completion_time": chunk.time_info.completion_time,
+        "queue_time": chunk.time_info.queue_time,
+        "total_server_time": chunk.time_info.total_time,
     }
 
     token_usage = {
@@ -156,20 +222,63 @@ def run_benchmark(
             f"Server latency: {result['server_metrics']['total_server_time']:.4f}s"
         )
         logger.info(
-            f"Server throughput: {result['server_metrics']['server_throughput']:.2f} tokens/sec"
+            "Server throughput: "
+            f"{result['server_metrics']['server_throughput']:.2f} tokens/sec"
         )
         logger.info(
-            f"Time to first token: {result['client_metrics']['time_to_first_token']:.4f}s"
+            "Time to first token: "
+            f"{result['client_metrics']['time_to_first_token']:.4f}s"
         )
         logger.info(
             f"Output speed: {result['client_metrics']['output_speed']:.2f} tokens/sec"
         )
         logger.info(
-            f"Total request time: {result['client_metrics']['total_time_per_request']:.4f}s"
+            "Total request time: "
+            f"{result['client_metrics']['total_time_per_request']:.4f}s"
         )
         logger.info("---")
 
     return results
+
+
+async def run_concurrent_benchmark(
+    client: Cerebras,
+    prompts: List[Dict[str, Any]],
+    concurrency: int = 1,
+    model: str = "llama-3.3-70b",
+) -> List[Dict[str, Any]]:
+    """Run benchmark with concurrent requests."""
+    all_results = []
+
+    if concurrency == 1:
+        # Use the existing non-concurrent implementation
+        return run_benchmark(client, prompts, model)
+
+    # For concurrent processing, we'll duplicate prompts to hit the concurrency limit
+    expanded_prompts = []
+    for i in range(concurrency):
+        for prompt in prompts:
+            # Make a copy and add an identifier for concurrency
+            prompt_copy = prompt.copy()
+            prompt_copy["name"] = f"{prompt['name']}_concurrent_{i}"
+            expanded_prompts.append(prompt_copy)
+
+    # Process in batches based on concurrency
+    for i in range(0, len(expanded_prompts), concurrency):
+        batch = expanded_prompts[i:i + concurrency]
+
+        # Use ThreadPoolExecutor for concurrent API calls
+        with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
+            futures = [
+                executor.submit(measure_performance, client, prompt, model)
+                for prompt in batch
+            ]
+            batch_results = [
+                future.result() for future in concurrent.futures.as_completed(futures)
+            ]
+            all_results.extend(batch_results)
+
+    return all_results
 
 
 def compare_metrics(results: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -213,32 +322,65 @@ def compare_metrics(results: List[Dict[str, Any]]) -> Dict[str, Any]:
     return comparison
 
 
-def main():
-    logger.info("Starting Cerebras performance benchmark")
+def run_benchmark_cli(concurrency: int = 1, model: str = MODEL):
+    """
+    Run the Cerebras performance benchmark.
 
-    try:
-        # Setup
-        client = setup_client()
+    Args:
+        concurrency: Number of concurrent requests.
+        model: Model to use for inference.
+    """
+    logger.info(
+        f"Starting Cerebras performance benchmark with concurrency={concurrency}"
+    )
 
-        # Generate test prompts
-        prompts = generate_prompts()
+    # Setup
+    client = setup_client()
 
-        # Run benchmark
-        results = run_benchmark(client, prompts)
+    # Generate test prompts using model-generated content
+    logger.info("Generating test prompts with model-generated content...")
+    prompts = generate_prompts(client, model)
 
-        # Compare server-side and client-side metrics
-        comparison = compare_metrics(results)
+    # Save the generated prompts for reference
+    with open(f"benchmark_prompts_{model}.json", "w") as f:
+        json.dump(prompts, f, indent=2)
 
-        # Save results
-        with open("benchmark_results.json", "w") as f:
-            json.dump({"results": results, "comparison": comparison}, f, indent=2)
+    logger.info(f"Generated {len(prompts)} test prompts")
 
-        logger.info("Benchmark complete. Results saved to benchmark_results.json")
+    # Run benchmark with appropriate concurrency
+    if concurrency == 1:
+        results = run_benchmark(client, prompts, model)
+    else:
+        results = asyncio.run(
+            run_concurrent_benchmark(client, prompts, concurrency, model)
+        )
 
-    except Exception as e:
-        logger.error(f"Error during benchmark: {str(e)}")
-        raise
+    # Compare server-side and client-side metrics
+    comparison = compare_metrics(results)
+
+    # Save results
+    output_file = f"benchmark_results_{model}_concurrency_{concurrency}.json"
+    with open(output_file, "w") as f:
+        json.dump(
+            {
+                "concurrency": concurrency,
+                "model": model,
+                "results": results,
+                "comparison": comparison,
+            },
+            f,
+            indent=2,
+        )
+
+    logger.info(f"Benchmark complete. Results saved to {output_file}")
+
+    return {
+        "concurrency": concurrency,
+        "model": model,
+        "results": results,
+        "comparison": comparison,
+    }
 
 
 if __name__ == "__main__":
-    main()
+    fire.Fire(run_benchmark_cli)
