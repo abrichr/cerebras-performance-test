@@ -1,4 +1,2 @@
 .env
 *.sw[m-p]
-plots/
-results/

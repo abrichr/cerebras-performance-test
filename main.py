@@ -9,13 +9,19 @@ import textwrap
 import time
 import statistics
 
-from cerebras.cloud.sdk import Cerebras
+from cerebras.cloud.sdk import Cerebras, RateLimitError
 from dotenv import load_dotenv
 from loguru import logger
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+)
 
 MAX_TOKENS = 5000
 MODEL = "llama-3.3-70b"
-NUM_ITERATIONS = 10
+NUM_ITERATIONS = 5
 OUTPUT_DIR = "results"
 
 
@@ -28,6 +34,16 @@ def setup_client() -> Cerebras:
     return Cerebras(api_key=api_key)
 
 
+def retry_on_rate_limit():
+    return retry(
+        retry=retry_if_exception_type(RateLimitError),
+        wait=wait_exponential(multiplier=1, min=2, max=60),
+        stop=stop_after_attempt(5),
+        reraise=True,
+    )
+
+
+@retry_on_rate_limit()
 def generate_content(
     client: Cerebras,
     prompt: str,
@@ -115,6 +131,7 @@ def generate_prompts(client: Cerebras, model: str) -> List[Dict[str, Any]]:
     ]
 
 
+@retry_on_rate_limit()
 def measure_performance(
     client: Cerebras, prompt: Dict[str, Any], model: str = MODEL
 ) -> Dict[str, Any]:
@@ -160,7 +177,26 @@ def measure_performance(
     # End timing
     client_end_time = time.time()
 
-    # Store server metrics from final chunk
+    # Extract and calculate metrics
+    token_usage = extract_token_usage(chunk)
+    server_metrics = calculate_server_metrics(chunk, token_usage)
+    client_metrics = calculate_client_metrics(
+        client_start_time, client_end_time, first_token_time, tokens, token_times
+    )
+
+    # Combine all metrics
+    result = {
+        "prompt": prompt_name,
+        "server_metrics": server_metrics,
+        "client_metrics": client_metrics,
+        "token_usage": token_usage,
+    }
+
+    return result
+
+
+def calculate_server_metrics(chunk, token_usage: Dict[str, int]) -> Dict[str, float]:
+    """Calculate all server-side metrics from the completion response."""
     server_metrics = {
         "prompt_time": chunk.time_info.prompt_time,
         "completion_time": chunk.time_info.completion_time,
@@ -168,16 +204,36 @@ def measure_performance(
         "total_server_time": chunk.time_info.total_time,
     }
 
-    token_usage = {
+    # Calculate server-side throughput
+    assert server_metrics["completion_time"] > 0, server_metrics
+    server_metrics["server_throughput"] = (
+        token_usage["completion_tokens"] / server_metrics["completion_time"]
+    )
+
+    return server_metrics
+
+
+def extract_token_usage(chunk) -> Dict[str, int]:
+    """Extract token usage statistics from the completion response."""
+    return {
         "prompt_tokens": chunk.usage.prompt_tokens,
         "completion_tokens": chunk.usage.completion_tokens,
         "total_tokens": chunk.usage.total_tokens,
     }
 
-    # Calculate client-side metrics
+
+def calculate_client_metrics(
+    start_time: float,
+    end_time: float,
+    first_token_time: float,
+    tokens: List[str],
+    token_times: List[float],
+) -> Dict[str, float]:
+    """Calculate client-side metrics from timing data."""
+    # Basic timing metrics
     client_metrics = {
-        "time_to_first_token": first_token_time - client_start_time,
-        "total_time_per_request": client_end_time - client_start_time,
+        "time_to_first_token": first_token_time - start_time,
+        "total_time_per_request": end_time - start_time,
     }
 
     # Calculate output speed (tokens per second)
@@ -190,21 +246,7 @@ def measure_performance(
 
     client_metrics["output_speed"] = output_speed
 
-    # Calculate server-side throughput
-    assert server_metrics["completion_time"] > 0, server_metrics
-    server_throughput = (
-        token_usage["completion_tokens"] / server_metrics["completion_time"]
-    )
-
-    # Combine all metrics
-    result = {
-        "prompt": prompt_name,
-        "server_metrics": {**server_metrics, "server_throughput": server_throughput},
-        "client_metrics": client_metrics,
-        "token_usage": token_usage,
-    }
-
-    return result
+    return client_metrics
 
 
 def run_benchmark_with_iterations(
@@ -225,7 +267,7 @@ def run_benchmark_with_iterations(
         all_iteration_results = []
 
         for i in range(num_iterations):
-            logger.info(f"  Repeat {i+1}/{num_iterations}")
+            logger.info(f"  Iteration {i+1}/{num_iterations}")
             # Measure performance metrics
             result = measure_performance(client, prompt, model)
             all_iteration_results.append(result)
