@@ -217,8 +217,7 @@ The box and whisker plots demonstrate the statistical distribution of key metric
 
 ## Additional Visualization Resources
 
-Multiple benchmark runs were conducted to ensure consistency and identify variability.
-While the plots above are from a representative run (10 iterations), additional visualizations from other runs are available [here](plots/), with source data [here](results/).
+The plots above represent one benchmark run. For transparency and completeness, the [raw data](results/) and [visualizations](plots/) from all benchmark runs are available.
 
 ## Challenges and Key Insights
 
