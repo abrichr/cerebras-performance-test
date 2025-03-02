@@ -218,17 +218,7 @@ The box and whisker plots demonstrate the statistical distribution of key metric
 ## Additional Visualization Resources
 
 Multiple benchmark runs were conducted to ensure consistency and identify variability.
-While the plots above are from a representative run (10 iterations), additional visualizations from other runs are available in the repository:
-
-- [Run with 3 iterations (20250301_233755)](plots/20250301_233755/)
-- [Run with 5 iterations (20250301_164347)](plots/20250301_164347/)
-- [Run with 5 iterations (20250301_234003)](plots/20250301_234003/)
-- [Run with 5 iterations (20250302_131353)](plots/20250302_131353/)
-- [Run with 10 iterations (20250301_171054)](plots/20250301_171054/)
-- [Run with 20 iterations (20250301_232900)](plots/20250301_232900/)
-- [Run with 20 iterations (20250301_234208)](plots/20250301_234208/)
-
-Comparing plots across multiple runs illustrates both the consistent patterns and the variability encountered in real-world inference scenarios.
+While the plots above are from a representative run (10 iterations), additional visualizations from other runs are available [here](plots/), with source data [here](results/).
 
 ## Challenges and Key Insights
 
@@ -240,7 +230,7 @@ Comparing plots across multiple runs illustrates both the consistent patterns an
 
 3. **Network Impact Analysis**: Network overhead varied substantially across tests, making it difficult to establish consistent expectations for real-world performance.
 
-4. **Outlier Handling**: Some tests showed extreme values for metrics like time to first token and network overhead, requiring careful interpretation.
+4. **Outlier Handling**: Some tests showed extreme values for metrics like time to first token and network overhead.
 
 ### Key Insights
 

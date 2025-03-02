@@ -1,0 +1,178 @@
+{
+  "timestamp": "20250301_234003",
+  "concurrency": 1,
+  "model": "llama-3.3-70b",
+  "num_iterations": 5,
+  "results": [
+    {
+      "prompt": "short_input_short_output",
+      "server_metrics": {
+        "prompt_time": 0.002509276,
+        "prompt_time_std": 3.68431894113418e-05,
+        "completion_time": 0.1782086074,
+        "completion_time_std": 0.02428731848271485,
+        "queue_time": 9.6884e-05,
+        "queue_time_std": 9.951144934126924e-06,
+        "total_server_time": 0.1903996467590332,
+        "total_server_time_std": 0.03699209979464981,
+        "server_throughput": 2497.114556766952,
+        "server_throughput_std": 244.04598300583072
+      },
+      "client_metrics": {
+        "time_to_first_token": 0.13729004859924315,
+        "time_to_first_token_std": 0.0316946052103559,
+        "total_time_per_request": 0.3189497947692871,
+        "total_time_per_request_std": 0.03181110970964056,
+        "output_speed": 2867.9252318291233,
+        "output_speed_std": 951.1247995498154
+      },
+      "token_usage": {
+        "prompt_tokens": 39,
+        "completion_tokens": 441.6,
+        "total_tokens": 480.6
+      }
+    },
+    {
+      "prompt": "short_input_long_output",
+      "server_metrics": {
+        "prompt_time": 0.0033907348,
+        "prompt_time_std": 0.00016444401771332394,
+        "completion_time": 0.794079942,
+        "completion_time_std": 0.05514293150320937,
+        "queue_time": 0.0001256084,
+        "queue_time_std": 7.744764720312683e-05,
+        "total_server_time": 0.7995602130889893,
+        "total_server_time_std": 0.05513321766354731,
+        "server_throughput": 1754.28529048196,
+        "server_throughput_std": 53.28731830512031
+      },
+      "client_metrics": {
+        "time_to_first_token": 0.12897520065307616,
+        "time_to_first_token_std": 0.01779153547993371,
+        "total_time_per_request": 0.9336454391479492,
+        "total_time_per_request_std": 0.06709123803273853,
+        "output_speed": 1758.7399095990966,
+        "output_speed_std": 70.96490901028238
+      },
+      "token_usage": {
+        "prompt_tokens": 66,
+        "completion_tokens": 1392.6,
+        "total_tokens": 1458.6
+      }
+    },
+    {
+      "prompt": "long_input_short_output",
+      "server_metrics": {
+        "prompt_time": 0.0737693578,
+        "prompt_time_std": 0.00021656774551788687,
+        "completion_time": 0.0438054186,
+        "completion_time_std": 0.004918223980142201,
+        "queue_time": 0.000102652,
+        "queue_time_std": 8.125175075036843e-06,
+        "total_server_time": 0.12017240524291992,
+        "total_server_time_std": 0.004711449135638511,
+        "server_throughput": 935.2247184088791,
+        "server_throughput_std": 197.62227152430876
+      },
+      "client_metrics": {
+        "time_to_first_token": 0.3446227550506592,
+        "time_to_first_token_std": 0.4749043758131735,
+        "total_time_per_request": 0.45880422592163084,
+        "total_time_per_request_std": 0.4725005915856706,
+        "output_speed": 983.5200384082996,
+        "output_speed_std": 218.12189721233705
+      },
+      "token_usage": {
+        "prompt_tokens": 2012,
+        "completion_tokens": 40.4,
+        "total_tokens": 2052.4
+      }
+    },
+    {
+      "prompt": "long_input_long_output",
+      "server_metrics": {
+        "prompt_time": 0.0751207724,
+        "prompt_time_std": 0.0002774983611263336,
+        "completion_time": 0.7363958676,
+        "completion_time_std": 0.17048043949447947,
+        "queue_time": 9.95424e-05,
+        "queue_time_std": 4.33207494164171e-06,
+        "total_server_time": 0.814100694656372,
+        "total_server_time_std": 0.17068256400755433,
+        "server_throughput": 2097.1535993827083,
+        "server_throughput_std": 199.9192030985331
+      },
+      "client_metrics": {
+        "time_to_first_token": 0.18584198951721193,
+        "time_to_first_token_std": 0.07285209998788583,
+        "total_time_per_request": 0.9950351715087891,
+        "total_time_per_request_std": 0.21035611447047253,
+        "output_speed": 2119.028467928153,
+        "output_speed_std": 200.8536468962698
+      },
+      "token_usage": {
+        "prompt_tokens": 2029,
+        "completion_tokens": 1527.2,
+        "total_tokens": 3556.2
+      }
+    }
+  ],
+  "comparison": {
+    "short_input_short_output": {
+      "server_vs_client_latency": {
+        "server_time": 0.1903996467590332,
+        "client_time": 0.3189497947692871,
+        "network_overhead": 0.12855014801025388,
+        "overhead_percentage": 67.51595929846704
+      },
+      "server_vs_client_throughput": {
+        "server_throughput": 2497.114556766952,
+        "client_throughput": 2867.9252318291233,
+        "difference": -370.8106750621714,
+        "difference_percentage": -14.849566034417942
+      }
+    },
+    "short_input_long_output": {
+      "server_vs_client_latency": {
+        "server_time": 0.7995602130889893,
+        "client_time": 0.9336454391479492,
+        "network_overhead": 0.1340852260589599,
+        "overhead_percentage": 16.76987222024722
+      },
+      "server_vs_client_throughput": {
+        "server_throughput": 1754.28529048196,
+        "client_throughput": 1758.7399095990966,
+        "difference": -4.4546191171366445,
+        "difference_percentage": -0.25392786118116595
+      }
+    },
+    "long_input_short_output": {
+      "server_vs_client_latency": {
+        "server_time": 0.12017240524291992,
+        "client_time": 0.45880422592163084,
+        "network_overhead": 0.3386318206787109,
+        "overhead_percentage": 281.78833567838717
+      },
+      "server_vs_client_throughput": {
+        "server_throughput": 935.2247184088791,
+        "client_throughput": 983.5200384082996,
+        "difference": -48.295319999420485,
+        "difference_percentage": -5.164033739568658
+      }
+    },
+    "long_input_long_output": {
+      "server_vs_client_latency": {
+        "server_time": 0.814100694656372,
+        "client_time": 0.9950351715087891,
+        "network_overhead": 0.18093447685241704,
+        "overhead_percentage": 22.225073389574813
+      },
+      "server_vs_client_throughput": {
+        "server_throughput": 2097.1535993827083,
+        "client_throughput": 2119.028467928153,
+        "difference": -21.87486854544477,
+        "difference_percentage": -1.0430742198322325
+      }
+    }
+  }
+}
