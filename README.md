@@ -58,10 +58,10 @@ python main.py --concurrency=100
 
 The benchmarking approach focused on measuring both server-side and client-side metrics to provide a comprehensive understanding of Llama 3.3 70B performance on the Cerebras Inference Cloud. The evaluation was conducted with four different prompt types to test various input/output scenarios:
 
-1. **Short input, short output**: Simple question/answer scenarios
-2. **Short input, long output**: Creative generation from brief prompts
-3. **Long input, short output**: Summarization of lengthy texts
-4. **Long input, long output**: Detailed analysis of extensive documents
+1. Short input, short output: Simple question/answer scenarios
+2. Short input, long output: Creative generation from brief prompts
+3. Long input, short output: Summarization of lengthy texts
+4. Long input, long output: Detailed analysis of extensive documents
 
 Each test was run multiple times (3-20 iterations) to calculate averages and standard deviations, ensuring statistical reliability. The implementation used the Cerebras Python SDK to collect metrics while carefully timing the client-side request lifecycle.
 
@@ -93,14 +93,14 @@ Key metrics measured included:
 
 During the benchmark implementation, two types of rate limit errors were encountered:
 
-1. **Requests Per Minute Limit**: Initially observed with many iterations per test:
+1. Requests Per Minute Limit: Initially observed with many iterations per test:
    ```
    cerebras.cloud.sdk.RateLimitError: Error code: 429 - {'message': 'Requests per minute limit exceeded - too many requests sent.', 'type': 'too_many_requests_error', 'param': 'quota', 'code': 'request_quota_exceeded'}
    ```
 
 Addressed by implementing rate limiting via retry logic with exponential backoff.
 
-2. **Daily Token Quota Limit**: After rate limiting for requests was implemented:
+2. Daily Token Quota Limit: After rate limiting for requests was implemented:
    ```
    cerebras.cloud.sdk.RateLimitError: Error code: 429 - {'message': 'Tokens per day limit exceeded - too many tokens processed.', 'type': 'too_many_requests_error', 'param': 'quota', 'code': 'token_quota_exceeded'}
    ```
@@ -122,7 +122,7 @@ The relationship between server-side and client-side latency varies significantl
 | Long Input, Short Output | 0.10-0.17 | 0.27-0.53 | 139-349% (up to 1773% in outlier runs) |
 | Long Input, Long Output | 0.66-0.90 | 0.78-5.29 | 18-551% |
 
-**Key Insight**: Short input, long output scenarios consistently show the most predictable network overhead, typically around 12-19%. Long input scenarios exhibit much higher variability, with some tests showing extreme network overhead percentages.
+Short input, long output scenarios consistently show the most predictable network overhead, typically around 12-19%. Long input scenarios exhibit much higher variability, with some tests showing extreme network overhead percentages.
 
 ### Time to First Token
 
@@ -137,7 +137,7 @@ Time to first token (TTFT) measurements revealed distinct patterns across prompt
 | Long Input, Short Output | 0.14-2.45 | High (σ ≈ 0.03-9.67s) |
 | Long Input, Long Output | 0.12-4.48 | Extremely High (σ ≈ 0.01-13.70s) |
 
-**Key Insight**: TTFT for short inputs is consistently fast and predictable. For long inputs, TTFT is highly variable and can sometimes be unexpectedly high, suggesting that applications handling large contexts need robust timeout handling and user feedback mechanisms.
+TTFT for short inputs is consistently fast and predictable. For long inputs, TTFT is highly variable and can sometimes be unexpectedly high, suggesting that applications handling large contexts need robust timeout handling and user feedback mechanisms.
 
 ### Server vs. Client Throughput
 
@@ -152,7 +152,7 @@ Throughput comparison between server and client showed more consistency than lat
 | Long Input, Short Output | 935-1388 | 814-2630 | -145 to +100% |
 | Long Input, Long Output | 2097-2297 | 2097-2310 | -4.4 to +3.5% |
 
-**Key Insight**: Throughput is most consistent for generation-intensive workloads (short input, long output and long input, long output). The extreme variability in long input, short output scenarios is likely due to the small number of output tokens making throughput measurements less reliable.
+Throughput is most consistent for generation-intensive workloads (short input, long output and long input, long output). The extreme variability in long input, short output scenarios is likely due to the small number of output tokens making throughput measurements less reliable.
 
 ### Server Component Times
 
@@ -160,15 +160,15 @@ Throughput comparison between server and client showed more consistency than lat
 
 Breaking down server-side processing reveals consistent patterns:
 
-1. **Queue times** were generally negligible (<10ms) with occasional spikes up to 20ms
-2. **Prompt processing time** scaled with input length:
+1. Queue times were generally negligible (<10ms) with occasional spikes up to 20ms
+2. Prompt processing time scaled with input length:
    - Short inputs: ~0.002-0.004s
    - Long inputs: ~0.07-0.12s
-3. **Completion time** dominated total server time for generation-heavy tasks:
+3. Completion time dominated total server time for generation-heavy tasks:
    - Short outputs: ~0.03-0.19s
    - Long outputs: ~0.69-0.95s
 
-**Key Insight**: Prompt processing is highly efficient even for large context windows. The bulk of processing time is spent on token generation, which is fairly consistent across test runs given the same output length.
+Prompt processing is highly efficient even for large context windows. The bulk of processing time is spent on token generation, which is fairly consistent across test runs given the same output length.
 
 ### Network Overhead
 
@@ -176,9 +176,9 @@ Breaking down server-side processing reveals consistent patterns:
 
 The network overhead analysis confirmed significant variability in how network transmission affects total latency:
 
-- **Short input, long output**: Most consistently efficient with typically 12-19% overhead
-- **Long input scenarios**: Highly variable overhead, ranging from ~18% to over 1700% in extreme cases
-- **Short input, short output**: Moderate but consistent overhead around 60-105%
+- Short input, long output: Most consistently efficient with typically 12-19% overhead
+- Long input scenarios: Highly variable overhead, ranging from ~18% to over 1700% in extreme cases
+- Short input, short output: Moderate but consistent overhead around 60-105%
 
 ### Token Usage
 
@@ -199,10 +199,10 @@ This distribution provided a good sampling of the model's operational range with
 
 The variability heatmap reveals which metrics showed the most inconsistency:
 
-1. **Queue time** showed high relative standard deviation across all prompt types
-2. **Time to first token** had extreme variability in long input scenarios
-3. **Client-side metrics** generally showed more variability than server-side metrics
-4. **Short input, long output** scenarios consistently showed the lowest variability
+1. Queue time showed high relative standard deviation across all prompt types
+2. Time to first token had extreme variability in long input scenarios
+3. Client-side metrics generally showed more variability than server-side metrics
+4. Short input, long output scenarios consistently showed the lowest variability
 
 ### Statistical Distribution
 
@@ -219,27 +219,25 @@ The box and whisker plots demonstrate the statistical distribution of key metric
 
 The plots above represent one benchmark run. For transparency and completeness, the [raw data](results/) and [visualizations](plots/) from all benchmark runs are available.
 
-## Challenges and Key Insights
+## Challenges
 
-### Challenges
+1. Measurement Variability: Significant variability was observed across test runs, particularly for long input scenarios and client-side metrics.
 
-1. **Measurement Variability**: Significant variability was observed across test runs, particularly for long input scenarios and client-side metrics.
+2. Rate Limit Management: Working within the constraints of the free tier required implementing robust retry mechanisms and carefully managing token usage.
 
-2. **Rate Limit Management**: Working within the constraints of the free tier required implementing robust retry mechanisms and carefully managing token usage.
+3. Network Impact Analysis: Network overhead varied substantially across tests, making it difficult to establish consistent expectations for real-world performance.
 
-3. **Network Impact Analysis**: Network overhead varied substantially across tests, making it difficult to establish consistent expectations for real-world performance.
+4. Outlier Handling: Some tests showed extreme values for metrics like time to first token and network overhead.
 
-4. **Outlier Handling**: Some tests showed extreme values for metrics like time to first token and network overhead.
+## Observations
 
-### Key Insights
+1. Input Length Impact: Large input prompts generally created higher and more variable network overhead, affecting real-world performance beyond what server metrics indicated.
 
-1. **Input Length Impact**: Large input prompts generally created higher and more variable network overhead, affecting real-world performance beyond what server metrics indicated.
+2. Predictable Generation Performance: Despite variability in other metrics, token generation throughput remained relatively consistent for a given prompt type, especially for scenarios with longer outputs.
 
-2. **Predictable Generation Performance**: Despite variability in other metrics, token generation throughput remained relatively consistent for a given prompt type, especially for scenarios with longer outputs.
+3. Short Input, Long Output Efficiency: This scenario consistently showed the most predictable and efficient performance, with low network overhead and stable throughput.
 
-3. **Short Input, Long Output Efficiency**: This scenario consistently showed the most predictable and efficient performance, with low network overhead and stable throughput.
-
-4. **Time to First Token Challenges**: TTFT for long inputs showed high unpredictability, with some tests showing acceptable values (~0.15s) and others showing potentially problematic delays (2-4s).
+4. Time to First Token Challenges: TTFT for long inputs showed high unpredictability, with some tests showing acceptable values (~0.15s) and others showing potentially problematic delays (2-4s).
 
 ## Conclusion
 
